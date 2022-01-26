@@ -1,0 +1,11 @@
+__pycache__/
+.python_packages
+.venv
+.vscode
+local.settings.json
+package-lock.json
+cache
+artifacts
+.openzeppelin
+node_modules
+.env
