@@ -3,36 +3,44 @@ pragma solidity ^0.8.3;
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-
+import './Implem/Interfaces/IEIP2981.sol';
 import "hardhat/console.sol";
 
 contract LikhaNFTMarketplace is ReentrancyGuard {
-    uint256 commissionRate;
+    uint256 PlatformFee1stPurchase;
+    uint256 PlatformFee2ndPurchase;
     address payable LikhaWalletAddress;
-    using Counters for Counters.Counter;
-    Counters.Counter private _itemIds;
-    Counters.Counter private _itemsSold;
-    Counters.Counter private _eventId;
 
     // Events
-    event MarketplaceEvent(
-        uint256 indexed eventId,
-        address initiator,
+    event ItemPostEvent(
+        string dbID, 
+        address seller, 
+        uint256 price,
         string message
     );
-
+    event NFTSaleEvent(
+        string dbID,
+        address buyer,
+        address seller,
+        uint256 price,
+        uint256 credited,
+        string message
+    );
     // Objects
     struct MarketItem {
-        uint256 itemId;
+        string dbID;
         address NFTContractAddress;
         uint256 tokenId;
         address payable seller;
-        address payable owner;
         uint256 price;
-        bool sold;
+        uint256 firstNFTPosted;
+        MarketSaleStatus status;
+    }
+    struct MarketSaleStatus{
+        string value;
     }
 
-    mapping(uint256 => MarketItem) private idToMarketItem;
+    mapping(string => MarketItem) private idToMarketItem;
 
     //Modifiers
     modifier onlyOwner() {
@@ -42,55 +50,65 @@ contract LikhaNFTMarketplace is ReentrancyGuard {
 
     constructor() {
         LikhaWalletAddress = payable(msg.sender);
-        commissionRate = 10;
+        PlatformFee1stPurchase = 1000;
+        PlatformFee2ndPurchase = 250;
     }
 
     // Views
-    function getCommissionRate() public view returns (uint256) {
-        return commissionRate;
+    function getPlatformFee1stPurchase() public view returns (uint256) {
+        return PlatformFee1stPurchase;
+    }
+     function getPlatformFee2ndPurchase() public view returns (uint256) {
+        return PlatformFee2ndPurchase;
     }
 
-    function setCommissionRate(uint256 newCommissionRate) external onlyOwner {
-        commissionRate = newCommissionRate;
+    function setPlatformFee1stPurchase(uint256 newPlatformFee) external onlyOwner {
+        PlatformFee1stPurchase = newPlatformFee;
+    }
+    function setPlatformFee2ndPurchase(uint256 newPlatformFee) external onlyOwner {
+        PlatformFee2ndPurchase = newPlatformFee;
     }
 
-    function listItem(
-        address contractAddress,
-        address lister,
-        uint256 tokenId,
-        uint256 price
-    ) external payable nonReentrant onlyOwner {
-        require(price > 1 ether, "Price must be at least 1 MATIC"); // or 1 default coin in the network based on ethereum blockchain technology
+    function nftSellPosting(
+        string memory dbID,
+        address NFTAddress,
+        address seller,
+        uint256 NFTTokenID,
+        uint256 price,
+        uint256 firstNFTPosted
+    ) external onlyOwner {
+        require(price >= 1 ether, "Price must be at least 1 MATIC"); // or 1 default coin in the network based on ethereum blockchain technology
+        require(IERC721(NFTAddress).ownerOf(NFTTokenID) == seller, "Posting of NFT not owner of address is not allowed");
+        require(IERC721(NFTAddress).isApprovedForAll(seller, address(this)), "Contract is not approved to trade on behalf of user");
+        require(price % 100 == 0, "processing of price not divisible by 100 is not allowed");
 
-        _itemIds.increment();
-        uint256 itemId = _itemIds.current();
-
-        idToMarketItem[itemId] = MarketItem(
-            itemId,
-            contractAddress,
-            tokenId,
-            payable(lister),
-            payable(address(0)),
+        idToMarketItem[dbID] = MarketItem(
+            dbID,
+            NFTAddress,
+            NFTTokenID,
+            payable(seller),
             price,
-            false
+            firstNFTPosted,
+            MarketSaleStatus("For Sale")
         );
-        _eventId.increment();
 
-        emit MarketplaceEvent(
-            _eventId.current(),
-            msg.sender,
-            "A Token was listed for sale"
+        emit ItemPostEvent(
+            dbID,
+            seller,
+            price,
+            "An NFT was listed for Sale"
         );
     }
 
-    function itemSale(address nftContract, uint256 itemId)
+    function buyNFT(string memory dbID)
         public
         payable
         nonReentrant
     {
-        uint256 price = idToMarketItem[itemId].price;
-        uint256 tokenId = idToMarketItem[itemId].tokenId;
-        address payable seller  = idToMarketItem[itemId].seller;
+        uint256 price = idToMarketItem[dbID].price;
+        uint256 tokenId = idToMarketItem[dbID].tokenId;
+        address payable seller  = idToMarketItem[dbID].seller;
+        address nftContract = idToMarketItem[dbID].NFTContractAddress;
         require(
             msg.value == price,
             "Asking price are not the same with the paying price. Please submit a valid value"
@@ -99,88 +117,56 @@ contract LikhaNFTMarketplace is ReentrancyGuard {
             msg.sender != seller,
             "buyer and seller are the same."
         );
-        require(msg.value % 100 == 0);
-        // divide by 100 because commission percentage is expressed as a uint
-        uint256 commission = (msg.value  * commissionRate) / 100;
-
-        idToMarketItem[itemId].seller.transfer(msg.value - commission);
-        IERC721(nftContract).transferFrom(
-            idToMarketItem[itemId].seller,
-            msg.sender,
-            tokenId
-        );
-        idToMarketItem[itemId].owner = payable(msg.sender);
-        idToMarketItem[itemId].sold = true;
-        LikhaWalletAddress.transfer(commission);
-        _eventId.increment();
-        emit MarketplaceEvent(
-            _eventId.current(),
-            msg.sender,
-            "An item was sold"
-        );
+        require(msg.value % 100 == 0, "processing of transaction value not divisible by 100 is not allowed");
+        require(IERC721(nftContract).ownerOf(tokenId) == seller, "Seller no longer owns the NFT");
+        require(IERC721(nftContract).isApprovedForAll(seller, address(this)), "Contract was disallowed to trade on seller's behalf");
+        
+        if(IERC165(nftContract).supportsInterface(type(IERC2981Royalties).interfaceId) && idToMarketItem[dbID].firstNFTPosted != 1){
+            (address receiver, uint256 royalties) = IERC2981Royalties(nftContract).royaltyInfo(tokenId, price);
+            uint256 commission = (msg.value  * PlatformFee2ndPurchase) / 10000;
+            uint256 creditToSeller = msg.value - commission;
+            address payable royalty_beneficiary = payable(receiver);
+              IERC721(nftContract).safeTransferFrom(
+                idToMarketItem[dbID].seller,
+                msg.sender,
+                tokenId
+            );
+            idToMarketItem[dbID].seller.transfer(creditToSeller);
+            royalty_beneficiary.transfer(royalties);
+            idToMarketItem[dbID].status = MarketSaleStatus("Sold");
+            LikhaWalletAddress.transfer(commission);
+            emit NFTSaleEvent(
+                dbID,
+                msg.sender,
+                seller,
+                price,
+                creditToSeller,
+                "An NFT from marketplace has been sold"
+            );
+        }
+        else{
+            uint256 commission = (msg.value  * PlatformFee1stPurchase) / 10000;
+            uint256 creditToSeller = msg.value - commission;
+            IERC721(nftContract).safeTransferFrom(
+                idToMarketItem[dbID].seller,
+                msg.sender,
+                tokenId
+            );
+            idToMarketItem[dbID].seller.transfer(creditToSeller);
+            idToMarketItem[dbID].status = MarketSaleStatus("Sold");
+            LikhaWalletAddress.transfer(commission);
+            emit NFTSaleEvent(
+                dbID,
+                msg.sender,
+                seller,
+                price,
+                creditToSeller,
+                "An NFT from marketplace has been sold"
+            );
+        }
     }
-
-
-    /* Gets All Items listed */
-    function fetchMarketItems() public view returns (MarketItem[] memory) {
-        uint256 itemCount = _itemIds.current();
-        uint256 currentIndex = 0;
-
-        MarketItem[] memory items = new MarketItem[](itemCount);
-        for (uint256 i = 0; i < itemCount; i++) {
-            uint256 currentId = i + 1;
-            MarketItem storage currentItem = idToMarketItem[currentId];
-            items[currentIndex] = currentItem;
-            currentIndex += 1;
-        }
-        return items;
-    }
-
-    /* Returns only items that a user has purchased */
-    function fetchMyNFTs() public view returns (MarketItem[] memory) {
-        uint256 totalItemCount = _itemIds.current();
-        uint256 itemCount = 0;
-        uint256 currentIndex = 0;
-
-        for (uint256 i = 0; i < totalItemCount; i++) {
-            if (idToMarketItem[i + 1].owner == msg.sender) {
-                itemCount += 1;
-            }
-        }
-
-        MarketItem[] memory items = new MarketItem[](itemCount);
-        for (uint256 i = 0; i < totalItemCount; i++) {
-            if (idToMarketItem[i + 1].owner == msg.sender) {
-                uint256 currentId = i + 1;
-                MarketItem storage currentItem = idToMarketItem[currentId];
-                items[currentIndex] = currentItem;
-                currentIndex += 1;
-            }
-        }
-        return items;
-    }
-
-    /* Returns only items a user has created */
-    function fetchItemsCreated() public view returns (MarketItem[] memory) {
-        uint256 totalItemCount = _itemIds.current();
-        uint256 itemCount = 0;
-        uint256 currentIndex = 0;
-
-        for (uint256 i = 0; i < totalItemCount; i++) {
-            if (idToMarketItem[i + 1].seller == msg.sender) {
-                itemCount += 1;
-            }
-        }
-
-        MarketItem[] memory items = new MarketItem[](itemCount);
-        for (uint256 i = 0; i < totalItemCount; i++) {
-            if (idToMarketItem[i + 1].seller == msg.sender) {
-                uint256 currentId = i + 1;
-                MarketItem storage currentItem = idToMarketItem[currentId];
-                items[currentIndex] = currentItem;
-                currentIndex += 1;
-            }
-        }
-        return items;
+    /* Gets listing status by ID */
+    function fetchPostingStatus(string memory dbID) public view returns (MarketItem memory) {
+        return idToMarketItem[dbID];
     }
 }

@@ -9,10 +9,10 @@ const Path = require('path');
 require('dotenv').config({path:Path.join(__dirname, '../.env')});
 
 async function main() {
-  // const NFTMarket = await hre.ethers.getContractFactory("LikhaNFTMarketplace");
-  // const nftMarket = await NFTMarket.deploy();
-  // await nftMarket.deployed();
-  // console.log("nftMarket deployed to:", nftMarket.address);
+  const NFTMarket = await hre.ethers.getContractFactory("LikhaNFTMarketplace");
+  const nftMarket = await NFTMarket.deploy();
+  await nftMarket.deployed();
+  console.log("nftMarket deployed to:", nftMarket.address);
 
   const NFT = await hre.ethers.getContractFactory("LikhaNFT");
   const nft = await NFT.deploy();
