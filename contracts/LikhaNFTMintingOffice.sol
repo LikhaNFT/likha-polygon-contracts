@@ -47,11 +47,9 @@ contract LikhaNFT is ERC721URIStorage, EIP2981PerTokenRoyalties{
         emit MintEvent(newItemId, dbID, "An NFT was minted successfully");
         return newItemId;  
     }
-    /*
     function burnToken(uint256 tokenId) public {
         require(ownerOf(tokenId) == msg.sender,  "You are not the owner of this token");
         _burn(tokenId);
         emit BurnEvent(tokenId, "An NFT was burned");
     }
-    */
 }

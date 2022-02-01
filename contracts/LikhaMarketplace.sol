@@ -195,4 +195,8 @@ contract LikhaNFTMarketplace is ReentrancyGuard {
     function isItemLocked(uint256 tokenID, address nftContract) public view returns (uint256){
         return _lockSecondPosting[nftContract][tokenID];
     }
+    // remove this contract for good. 
+    function burnContract() external onlyOwner{
+        selfdestruct(LikhaWalletAddress);
+    }
 }
