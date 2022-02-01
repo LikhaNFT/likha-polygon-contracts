@@ -1,3 +1,4 @@
+//SPDX-License-Identifier: MIT
 pragma solidity ^0.8.3;
 
 import "@openzeppelin/contracts/utils/Counters.sol";
@@ -12,18 +13,35 @@ contract LikhaNFTMarketplace is ReentrancyGuard {
     address payable LikhaWalletAddress;
 
     // Events
+
+    // ItemPostEvent
+    // Item is Posted
+    // dbID = from likha server
+    // seller = sellerr address
+    // price = posting price in wei 
+    // message = custom message 
     event ItemPostEvent(
-        string dbID, 
+        string dbID,
         address seller, 
         uint256 price,
         string message
     );
+    // NFTSaleEvent
+    // Item is sold event
+    // dbID =  likha server dbID
+    // buyer = buyer address 
+    // seller = sellerr address
+    // price = posting price in wei 
+    // credited = received by seller 
+    // royalty = royalty received by creator of NFT
+    // message = custom message 
     event NFTSaleEvent(
         string dbID,
         address buyer,
         address seller,
         uint256 price,
         uint256 credited,
+        uint256 royalty,
         string message
     );
     // Objects
@@ -33,7 +51,7 @@ contract LikhaNFTMarketplace is ReentrancyGuard {
         uint256 tokenId;
         address payable seller;
         uint256 price;
-        uint256 firstNFTPosted;
+        uint256 NFTFirstPurchaseDone;
         MarketSaleStatus status;
     }
     struct MarketSaleStatus{
@@ -41,7 +59,8 @@ contract LikhaNFTMarketplace is ReentrancyGuard {
     }
 
     mapping(string => MarketItem) private idToMarketItem;
-
+    mapping(address => mapping(uint256 => uint256)) private _firstPurchaseDone;
+    mapping(address => mapping(uint256 => uint256)) private _lockSecondPosting;
     //Modifiers
     modifier onlyOwner() {
         require(msg.sender == LikhaWalletAddress);
@@ -74,24 +93,23 @@ contract LikhaNFTMarketplace is ReentrancyGuard {
         address NFTAddress,
         address seller,
         uint256 NFTTokenID,
-        uint256 price,
-        uint256 firstNFTPosted
+        uint256 price
     ) external onlyOwner {
         require(price >= 1 ether, "Price must be at least 1 MATIC"); // or 1 default coin in the network based on ethereum blockchain technology
         require(IERC721(NFTAddress).ownerOf(NFTTokenID) == seller, "Posting of NFT not owner of address is not allowed");
         require(IERC721(NFTAddress).isApprovedForAll(seller, address(this)), "Contract is not approved to trade on behalf of user");
         require(price % 100 == 0, "processing of price not divisible by 100 is not allowed");
-
+        require(_lockSecondPosting[NFTAddress][NFTTokenID] == 0, "posting the same item while another one is active is not allowed");
+        _lockSecondPosting[NFTAddress][NFTTokenID] = 1;
         idToMarketItem[dbID] = MarketItem(
             dbID,
             NFTAddress,
             NFTTokenID,
             payable(seller),
             price,
-            firstNFTPosted,
+            _firstPurchaseDone[NFTAddress][NFTTokenID],
             MarketSaleStatus("For Sale")
         );
-
         emit ItemPostEvent(
             dbID,
             seller,
@@ -121,7 +139,7 @@ contract LikhaNFTMarketplace is ReentrancyGuard {
         require(IERC721(nftContract).ownerOf(tokenId) == seller, "Seller no longer owns the NFT");
         require(IERC721(nftContract).isApprovedForAll(seller, address(this)), "Contract was disallowed to trade on seller's behalf");
         
-        if(IERC165(nftContract).supportsInterface(type(IERC2981Royalties).interfaceId) && idToMarketItem[dbID].firstNFTPosted != 1){
+        if(IERC165(nftContract).supportsInterface(type(IERC2981Royalties).interfaceId) && idToMarketItem[dbID].NFTFirstPurchaseDone == 1){
             (address receiver, uint256 royalties) = IERC2981Royalties(nftContract).royaltyInfo(tokenId, price);
             uint256 commission = (msg.value  * PlatformFee2ndPurchase) / 10000;
             uint256 creditToSeller = msg.value - (commission + royalties);
@@ -141,6 +159,7 @@ contract LikhaNFTMarketplace is ReentrancyGuard {
                 seller,
                 price,
                 creditToSeller,
+                royalties,
                 "An NFT from marketplace has been sold"
             );
         }
@@ -161,12 +180,19 @@ contract LikhaNFTMarketplace is ReentrancyGuard {
                 seller,
                 price,
                 creditToSeller,
+                0,
                 "An NFT from marketplace has been sold"
             );
+            _firstPurchaseDone[nftContract][tokenId] = 1;
         }
+         _lockSecondPosting[nftContract][tokenId] = 0;
     }
     /* Gets listing status by ID */
     function fetchPostingStatus(string memory dbID) public view returns (MarketItem memory) {
         return idToMarketItem[dbID];
+    }
+    // Returns if item is locked 
+    function isItemLocked(uint256 tokenID, address nftContract) public view returns (uint256){
+        return _lockSecondPosting[nftContract][tokenID];
     }
 }
