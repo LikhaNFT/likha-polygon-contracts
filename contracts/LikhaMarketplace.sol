@@ -124,7 +124,7 @@ contract LikhaNFTMarketplace is ReentrancyGuard {
         if(IERC165(nftContract).supportsInterface(type(IERC2981Royalties).interfaceId) && idToMarketItem[dbID].firstNFTPosted != 1){
             (address receiver, uint256 royalties) = IERC2981Royalties(nftContract).royaltyInfo(tokenId, price);
             uint256 commission = (msg.value  * PlatformFee2ndPurchase) / 10000;
-            uint256 creditToSeller = msg.value - commission;
+            uint256 creditToSeller = msg.value - (commission + royalties);
             address payable royalty_beneficiary = payable(receiver);
               IERC721(nftContract).safeTransferFrom(
                 idToMarketItem[dbID].seller,

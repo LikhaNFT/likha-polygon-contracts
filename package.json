@@ -23,6 +23,7 @@
     "ethers": "^5.5.1",
     "hardhat": "^2.6.8",
     "ipfs-http-client": "^50.1.2",
+    "web3": "^1.7.0",
     "web3modal": "^1.9.4"
   }
 }

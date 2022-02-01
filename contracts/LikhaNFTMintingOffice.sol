@@ -12,7 +12,7 @@ contract LikhaNFT is ERC721URIStorage, EIP2981PerTokenRoyalties{
     Counters.Counter private _tokenIds;
 
     //events
-    event MintEvent(uint256 indexed tokenID, string indexed dbID, string message);
+    event MintEvent(uint256 indexed tokenID, string dbID, string message);
     event BurnEvent(uint256 indexed tokenID, string message);
 
     constructor() ERC721("Likha", "LKHA") {
