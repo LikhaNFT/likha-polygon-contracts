@@ -5,7 +5,9 @@ __pycache__/
 local.settings.json
 package-lock.json
 cache
-artifacts
+artifacts/hardhat
+artifacts/build-info
+artifacts/@openzeppelin
 .openzeppelin
 node_modules
 .env
