@@ -1,14 +1,19 @@
 require("@nomiclabs/hardhat-waffle");
 require("@nomiclabs/hardhat-etherscan");
 require('dotenv').config({path:__dirname + '/.env'});
+if(process.env.DEV === "0"){
+  var privateKey = process.env.SECRET_PROD || "01234567890123456789" 
+}
+else{
+  var privateKey = process.env.SECRET_DEV || "01234567890123456789" 
+}
 
-const privateKey = process.env.SECRET || "01234567890123456789" 
 const etherscanKey = process.env.API_KEY
 module.exports = {
-  defaultNetwork: "mumbai",
+  defaultNetwork: "hardhat",
   networks: {
     hardhat: {
-      chainId: 80001
+      chainId: 1011
     },
     mumbai: {
       url: "https://rpc-mumbai.maticvigil.com/",

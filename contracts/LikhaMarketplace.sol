@@ -270,12 +270,15 @@ contract LikhaNFTMarketplace is ReentrancyGuard {
 
     function cancelPosting(string memory dbID) external {
         address payable seller = idToMarketItem[dbID].seller;
+        address nftContract = idToMarketItem[dbID].NFTContractAddress;
+        uint256 tokenID = idToMarketItem[dbID].tokenId;
         require(msg.sender == seller, "TX sender is not the seller.");
         require(
             idToMarketItem[dbID].status.valueID < 2,
             "Cannot cancel items that are not active"
         );
         idToMarketItem[dbID].status = MarketSaleStatus("Cancelled", 3);
+        _lockSecondPosting[nftContract][tokenID] = 0;
         if (idToMarketItem[dbID].biddable == 1) {
             _release_bids(dbID);
         }

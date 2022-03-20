@@ -7,6 +7,7 @@ var MarketPlace;
 var marketplace;
 describe("Minter", function () {
   before(async function () {
+    this.timeout(10000);
     Minter = await ethers.getContractFactory("LikhaNFT");
     minter = await Minter.deploy();
     MarketPlace = await ethers.getContractFactory("LikhaNFTMarketplace");
@@ -25,6 +26,7 @@ describe("Minter", function () {
 });
 describe("Royalty", function () {
   before(async function () {
+    this.timeout(10000);
     Minter = await ethers.getContractFactory("LikhaNFT");
     minter = await Minter.deploy();
     MarketPlace = await ethers.getContractFactory("LikhaNFTMarketplace");
@@ -46,6 +48,7 @@ describe("Royalty", function () {
 
 describe("MarketPlace", function () {
   before(async function () {
+    this.timeout(10000);
     Minter = await ethers.getContractFactory("LikhaNFT");
     minter = await Minter.deploy();
     MarketPlace = await ethers.getContractFactory("LikhaNFTMarketplace");
@@ -155,6 +158,22 @@ describe("MarketPlace", function () {
     expect(NFTSaleEvent[0].args[7]).equals("An NFT from marketplace has been sold");
     expect(NFTSaleEvent[0].args[5].toString()).equals("75000000000000000");
     expect(NFTSaleEvent[0].args[4].toString()).equals("900000000000000000");
+  });
+  it("Should post item and cancel it", async function () {
+    this.timeout(10000);
+    let TX = await minter.mintToken("https://likhafuncapp.azurewebsites.net/api/ShowMetadata?GUID=5f960b0332274502892db481cc53d154", "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", "dummyID", 750);
+    let Receipt = await TX.wait();
+    const MintEvent = Receipt.events.filter((array) => {
+      return array.event === "MintEvent";
+    });
+    tokenID = MintEvent[0].args[0];
+    await minter.setApprovalForAll(marketplace.address, true);
+    await marketplace.nftSellPosting("dummyID", minter.address, "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", tokenID, BigNumber.from("1000000000000000000"), 0, "0x0000000000000000000000000000000000000000", 0);
+    await marketplace.cancelPosting("dummyID");
+    let postRes = await marketplace.fetchPostingStatus("dummyID");
+    let locked =  await marketplace.isItemLocked(tokenID, minter.address);
+    expect(postRes[10][1]).equals(BigNumber.from(3));
+    expect(locked).equals(BigNumber.from(0));
   });
 
 });
