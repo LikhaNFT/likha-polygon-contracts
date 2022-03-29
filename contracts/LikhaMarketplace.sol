@@ -195,7 +195,7 @@ contract LikhaNFTMarketplace is ReentrancyGuard {
         uint256 timeOfAuctionEnd,
         address ERC20Preferred,
         uint256 bidMinumum
-    ) external onlyOwner {
+    ) external {
         require(
             IERC721(NFTAddress).ownerOf(NFTTokenID) == seller,
             "Posting of NFT not owner of address is not allowed"
@@ -234,7 +234,7 @@ contract LikhaNFTMarketplace is ReentrancyGuard {
         uint256 biddable,
         address ERC20Preferred,
         uint256 bidMinimum
-    ) external onlyOwner {
+    ) external {
         require(
             IERC721(NFTAddress).ownerOf(NFTTokenID) == seller,
             "Posting of NFT not owner of address is not allowed"

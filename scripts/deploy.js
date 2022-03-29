@@ -13,6 +13,7 @@ async function main() {
   const nftMarket = await NFTMarket.deploy();
   await nftMarket.deployed();
   console.log("nftMarket deployed to:", nftMarket.address);
+  console.log('nftMarket', nftMarket);
 
   // const NFT = await hre.ethers.getContractFactory("LikhaNFT");
   // const nft = await NFT.deploy();

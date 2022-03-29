@@ -8,6 +8,8 @@ else{
   var privateKey = process.env.SECRET_DEV || "01234567890123456789" 
 }
 
+console.log(privateKey);
+
 const etherscanKey = process.env.API_KEY
 module.exports = {
   defaultNetwork: "hardhat",
